@@ -9,4 +9,8 @@
 	  <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="SpotifyAPI.Web" Version="7.4.2" />
+  </ItemGroup>
+
 </Project>

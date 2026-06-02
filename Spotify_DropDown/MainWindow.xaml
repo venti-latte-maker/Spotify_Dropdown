@@ -10,10 +10,12 @@
     <StackPanel Margin="15">
         <TextBlock
             x:Name="SongTitle"
+            Text="Bohemian Rhapsody"
             FontSize="16"
             FontWeight="Bold"/>
         <TextBlock
-            x:Name="ArtistName"/>
+            x:Name="ArtistName"
+            Text="Queen"/>
         <WrapPanel Margin="0, 10">
             <Button
                 x:Name="PrevButton"
@@ -31,7 +33,7 @@
         <Slider
             x:Name="VolumeSlider"
             Minimum="0"
-            Maximum="100"/>s
+            Maximum="100"/>
     </StackPanel>
  
 </Window>
