@@ -22,13 +22,17 @@
                 Content="⏮"
                 Width="50"/>
             <Button
-                x:Name="PlayButton"
+                x:Name="PlayPauseButton"
                 Content="▶"
                 Width="50"/>
             <Button
                 x:Name="NextButton"
                 Content="⏭"
                 Width="50"/>
+            <Button
+                x:Name="LoginButton"
+                Content="Login to Spotify"
+                Width="150"/>
         </WrapPanel>
         <Slider
             x:Name="VolumeSlider"

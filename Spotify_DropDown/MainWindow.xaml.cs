@@ -3,13 +3,16 @@ using System.Windows;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Spotify_DropDown.Services;
 
 namespace Spotify_DropDown
 {
 
     public partial class MainWindow : Window
     {
+        private SpotifyService spotifyService;
         private bool isHoveringWindow = false;
+        private DispatcherTimer spotifyTimer;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT
@@ -24,11 +27,13 @@ namespace Spotify_DropDown
         private DispatcherTimer timer;
         private DispatcherTimer hideTimer;
 
-        public MainWindow()
+        public MainWindow()     //Constructor
         {
-            InitializeComponent();
+            InitializeComponent(); // Ensure XAML-created controls are initialized first
 
-            PlayButton.Click += PlayButton_Click;
+            spotifyService = new SpotifyService();
+            LoginButton.Click += LoginButton_Click;
+            PlayPauseButton.Click += PlayPauseButton_Click;
 
             Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
             Top = -Height;
@@ -56,6 +61,11 @@ namespace Spotify_DropDown
                 isHoveringWindow = false;
                 hideTimer.Start();
             };
+
+            spotifyTimer = new DispatcherTimer();
+            spotifyTimer.Interval = TimeSpan.FromSeconds(1);
+            spotifyTimer.Tick += SpotifyTimer_Tick;
+            spotifyTimer.Start();
         }
 
         private void CheckMouse(object? sender, EventArgs e)
@@ -88,9 +98,30 @@ namespace Spotify_DropDown
             BeginAnimation(Window.TopProperty, animation);
         }
 
-        private void PlayButton_Click(object sender, RoutedEventArgs e)
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            SongTitle.Text = "Play button clicked!";
+            await spotifyService.LoginAsync();
+
+        }
+
+        private async void SpotifyTimer_Tick(object? sender, EventArgs e)
+        {
+            var track = await spotifyService.GetCurrentTrack();
+
+            SongTitle.Text = track.Song;
+            ArtistName.Text = track.Artist;
+
+            bool isPlaying = await spotifyService.IsPlaying();
+
+            PlayPauseButton.Content = isPlaying ? "⏸" : "▶";
+        }
+
+        private async void PlayPauseButton_Click(object sender,
+            RoutedEventArgs e)
+        {
+            bool isPlaying = await spotifyService.TogglePlayback();
+            PlayPauseButton.Content = isPlaying ? "⏸" : "▶";
         }
     }
 }
+
