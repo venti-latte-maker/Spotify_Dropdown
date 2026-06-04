@@ -34,6 +34,9 @@ namespace Spotify_DropDown
             spotifyService = new SpotifyService();
             LoginButton.Click += LoginButton_Click;
             PlayPauseButton.Click += PlayPauseButton_Click;
+            NextButton.Click += NextButton_Click;
+            PrevButton.Click += PrevButton_Click;
+            VolumeSlider.ValueChanged += VolumeSlider_ValueChange;
 
             Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
             Top = -Height;
@@ -121,6 +124,21 @@ namespace Spotify_DropDown
         {
             bool isPlaying = await spotifyService.TogglePlayback();
             PlayPauseButton.Content = isPlaying ? "⏸" : "▶";
+        }
+
+        private async void NextButton_Click(object sender, EventArgs e)
+        {
+            await spotifyService.Next();
+        }
+
+        private async void PrevButton_Click(object sender, EventArgs e)
+        {
+            await spotifyService.Previous();
+        }
+
+        private async void VolumeSlider_ValueChange(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            await spotifyService.SetVolume((int)e.NewValue);
         }
     }
 }

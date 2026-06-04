@@ -163,4 +163,21 @@ public class SpotifyService
 
         return devices.Devices.ToList();
     }
+
+    public async Task Next()
+    {
+        if (Client != null) await Client.Player.SkipNext();
+    }
+
+    public async Task Previous()
+    {
+        if (Client != null) await Client.Player.SkipPrevious();
+    }
+
+    public async Task SetVolume(int volume)
+    {
+        if (Client != null){
+            await Client.Player.SetVolume(new PlayerVolumeRequest(volume));
+        }
+    }
 }
