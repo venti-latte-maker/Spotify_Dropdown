@@ -1,12 +1,13 @@
-﻿using System.Linq;
+﻿using Spotify_DropDown.Models;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 
 namespace Spotify_DropDown.Services;
 
-
 public class SpotifyService
 {
+    public event Action? LoginSucceeded;
+
     private async Task OnErrorReceived(
         object sender,
         string error,
@@ -25,6 +26,9 @@ public class SpotifyService
                 ClientSecret,
                 response.Code,
                 new Uri("http://127.0.0.1:5000/callback")));
+
+        TokenStorage.SaveRefreshToken(tokenResponse.RefreshToken);
+
         Client = new SpotifyClient(tokenResponse.AccessToken);
 
         var me = await Client.UserProfile.Current();
@@ -32,6 +36,8 @@ public class SpotifyService
         System.Windows.MessageBox.Show($"Logged in as {me.DisplayName}");
 
         await ActivateFirstDevice();
+
+        LoginSucceeded?.Invoke();
 
         var devices = await GetDevices();   //debug code
 
@@ -71,39 +77,7 @@ public class SpotifyService
         };
 
         BrowserUtil.Open(request.ToUri());
-    }
-
-    public async Task<(string Song, string Artist)> GetCurrentTrack()
-    {
-        if (Client == null)
-        {
-            return ("Not Connected", "");
-        }
-
-        var playback = await Client.Player.GetCurrentPlayback();
-
-        if (playback?.Item == null) return ("Nothing playing", "");
-
-        if (playback.Item is FullTrack track)
-        {
-            return (
-                track.Name,
-                string.Join(",e ", track.Artists.Select(a => a.Name)));
-        }
-
-        return ("Unknown Item", "");
-    }
-
-    public async Task<bool> IsPlaying()
-    {
-        if (Client == null)
-        {
-            return false;
-        }
-
-        var playback = await Client.Player.GetCurrentPlayback();
-        return playback?.IsPlaying ?? false;
-    }
+    }   
 
     public async Task<bool> TogglePlayback()
     {
@@ -178,6 +152,54 @@ public class SpotifyService
     {
         if (Client != null){
             await Client.Player.SetVolume(new PlayerVolumeRequest(volume));
+        }
+    }
+    public async Task<PlaybackInfo?> GetPlaybackInfo()
+    {
+        if (Client == null) return null;
+        var playback = await Client.Player.GetCurrentPlayback();
+        if (playback == null) return null;
+
+        var info = new PlaybackInfo
+        {
+            IsPlaying = playback.IsPlaying,
+            VolumePercent = playback.Device?.VolumePercent ?? 0
+        };
+
+        if(playback.Item is FullTrack track)
+        {
+            info.Song = track.Name;
+            info.Artist = string.Join(", ", track.Artists.Select(a => a.Name));
+            info.AlbumArtUrl = track.Album.Images.FirstOrDefault()?.Url;
+
+        }
+
+        return info;
+    }
+
+    public async Task<bool> AutoLoginAsync()
+    {
+        var refreshToken = TokenStorage.LoadRefreshToken();
+
+        if (string.IsNullOrWhiteSpace(refreshToken)) return false;
+
+        try
+        {
+            var response = await new OAuthClient().RequestToken(
+                new AuthorizationCodeRefreshRequest(
+                    ClientId,
+                    ClientSecret,
+                    refreshToken));
+
+            Client = new SpotifyClient(response.AccessToken);
+
+            await ActivateFirstDevice();
+            return true;
+        }
+
+        catch
+        {
+            return false;
         }
     }
 }

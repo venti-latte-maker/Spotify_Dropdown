@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Animation;
@@ -13,6 +13,9 @@ namespace Spotify_DropDown
         private SpotifyService spotifyService;
         private bool isHoveringWindow = false;
         private DispatcherTimer spotifyTimer;
+        private bool updatingVolumeFromSpotify;
+        private DispatcherTimer volumeTimer;
+        private string? lastAlbumArtUrl;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT
@@ -32,11 +35,13 @@ namespace Spotify_DropDown
             InitializeComponent(); // Ensure XAML-created controls are initialized first
 
             spotifyService = new SpotifyService();
+            Loaded += MainWindow_Loaded;
             LoginButton.Click += LoginButton_Click;
             PlayPauseButton.Click += PlayPauseButton_Click;
             NextButton.Click += NextButton_Click;
             PrevButton.Click += PrevButton_Click;
             VolumeSlider.ValueChanged += VolumeSlider_ValueChange;
+            spotifyService.LoginSucceeded += SpotifyService_LoginSucceeded;
 
             Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
             Top = -Height;
@@ -69,6 +74,15 @@ namespace Spotify_DropDown
             spotifyTimer.Interval = TimeSpan.FromSeconds(1);
             spotifyTimer.Tick += SpotifyTimer_Tick;
             spotifyTimer.Start();
+
+            volumeTimer = new DispatcherTimer();
+            volumeTimer.Interval = TimeSpan.FromMilliseconds(300);
+            volumeTimer.Tick += async(_, _) =>
+            {
+                volumeTimer.Stop();
+
+                await spotifyService.SetVolume((int)VolumeSlider.Value);
+            };
         }
 
         private void CheckMouse(object? sender, EventArgs e)
@@ -109,14 +123,17 @@ namespace Spotify_DropDown
 
         private async void SpotifyTimer_Tick(object? sender, EventArgs e)
         {
-            var track = await spotifyService.GetCurrentTrack();
+            var playback = await spotifyService.GetPlaybackInfo();
+            if (playback == null) return;
 
-            SongTitle.Text = track.Song;
-            ArtistName.Text = track.Artist;
+            SongTitle.Text = playback.Song;
+            ArtistName.Text = playback.Artist;
+            UpdateAlbumArt(playback.AlbumArtUrl);
 
-            bool isPlaying = await spotifyService.IsPlaying();
+            PlayPauseButton.Content = playback.IsPlaying? "⏸" : "▶";
 
-            PlayPauseButton.Content = isPlaying ? "⏸" : "▶";
+            updatingVolumeFromSpotify = true;
+            updatingVolumeFromSpotify = false;
         }
 
         private async void PlayPauseButton_Click(object sender,
@@ -138,8 +155,34 @@ namespace Spotify_DropDown
 
         private async void VolumeSlider_ValueChange(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            await spotifyService.SetVolume((int)e.NewValue);
+            if (updatingVolumeFromSpotify) return;
+
+            volumeTimer.Stop();
+            volumeTimer.Start();
+        }
+        private void UpdateAlbumArt(string? imageUrl)
+        {
+            if (string.IsNullOrEmpty(imageUrl)) return;
+            if (imageUrl == lastAlbumArtUrl) return;
+            lastAlbumArtUrl = imageUrl;
+            AlbumArt.Source = new BitmapImage(new Uri(imageUrl));
+        }
+
+        private void SpotifyService_LoginSucceeded()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                LoginButton.Visibility = Visibility.Collapsed;
+            });
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            bool success = await spotifyService.AutoLoginAsync();
+
+            if (success) LoginButton.Visibility = Visibility.Collapsed;
         }
     }
 }
+
 
