@@ -21,11 +21,11 @@ public class SpotifyService
         object sender, AuthorizationCodeResponse response)
     {
         var tokenResponse = await new OAuthClient().RequestToken(
-            new AuthorizationCodeTokenRequest(
+            new PKCETokenRequest(
                 ClientId,
-                ClientSecret,
                 response.Code,
-                new Uri("http://127.0.0.1:5000/callback")));
+                new Uri("http://127.0.0.1:5000/callback"),
+                codeVerifier!));
 
         TokenStorage.SaveRefreshToken(tokenResponse.RefreshToken);
 
@@ -48,7 +48,7 @@ public class SpotifyService
     }
 
     private const string ClientId = "a5f9ead859a746a884e96caa854709a5";
-    private const string ClientSecret = "14b8eef377cc4e3694cbf8e5c88db5bf";
+    private string? codeVerifier;
 
     public SpotifyClient? Client { get; private set; }
 
@@ -63,6 +63,9 @@ public class SpotifyService
         server.AuthorizationCodeReceived += OnAuthorizationCodeReceived;
         server.ErrorReceived += OnErrorReceived;
 
+        var pkce = PKCEUtil.GenerateCodes();
+        codeVerifier = pkce.verifier;
+
         var request = new LoginRequest(
             server.BaseUri,
             ClientId,
@@ -73,7 +76,10 @@ public class SpotifyService
                 Scopes.UserReadPlaybackState,
                 Scopes.UserModifyPlaybackState,
                 Scopes.UserReadCurrentlyPlaying
-            }
+            },
+            
+            CodeChallengeMethod = "S256",
+            CodeChallenge = pkce.challenge
         };
 
         BrowserUtil.Open(request.ToUri());
@@ -186,9 +192,8 @@ public class SpotifyService
         try
         {
             var response = await new OAuthClient().RequestToken(
-                new AuthorizationCodeRefreshRequest(
+                new PKCETokenRefreshRequest(
                     ClientId,
-                    ClientSecret,
                     refreshToken));
 
             Client = new SpotifyClient(response.AccessToken);
